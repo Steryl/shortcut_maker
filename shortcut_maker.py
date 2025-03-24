@@ -15,7 +15,6 @@ def clean_shortcuts(link: Link):
 
     for file in folder.iterdir():
         link.set_path(file)
-        # print(link)
         # At higher levels.
         if not link.complete:
             if file.is_dir():
@@ -48,6 +47,7 @@ def create_shortcuts(link: Link):
             continue
 
         link.set_path(file)
+
         # At higher levels.
         if not link.complete:
             create_shortcuts(link.deeper)
@@ -100,7 +100,6 @@ def main():
     try:
         clean_shortcuts(shortcut_link)
         create_shortcuts(target_link)
-        pass
     except Exception as e:
         Print.error(str(e))
         # print(traceback.format_exc())
