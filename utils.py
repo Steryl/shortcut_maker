@@ -20,13 +20,6 @@ class DirType(Enum):
     TARGET = "target"
     SHORTCUT = "shortcut"
 
-    @property
-    def other(self) -> "DirType":
-        """Returns not the current type, but the other."""
-        if self is DirType.TARGET:
-            return DirType.SHORTCUT
-        return DirType.TARGET
-
 
 class Strings:
     """String methods"""
@@ -165,6 +158,9 @@ class Directory:
         self.path = path
         self.format = format
 
+    def copy(self):
+        return copy.deepcopy(self)
+
     def __str__(self):
         return Objects.str(self)
 
@@ -177,66 +173,44 @@ class Link:
 
     def __init__(
         self,
-        target: Directory,
-        shortcut: Directory
+        traversing: Directory,
+        building: Directory
     ):
-        self.target = target
-        self.shortcut = shortcut
+        self.traversing = traversing.copy()
+        self.building = building.copy()
         self.level = 0
-        self.exploring = None   # DirType
-        depth = len(target.format)
+        depth = len(traversing.format)
         self.path_parts = ['' for _ in range(depth)]
+        self.complete = all(self.path_parts)
+        self.complete_path = False
 
-    @property
-    def primary(self) -> Directory:
-        """Returns the directory that's being explored."""
-        return getattr(self, self.exploring.value)
-
-    @primary.setter
-    def primary(self, dir: Directory) -> None:
-        """Sets the directory that's being explored."""
-        setattr(self, self.exploring.value, dir)
-
-    @property
-    def secondary(self) -> Directory:
-        """Returns the directory that's being referenced."""
-        return getattr(self, self.exploring.other.value)
-
-    @secondary.setter
-    def secondary(self, dir: Directory) -> None:
-        """Sets the directory that's being referenced."""
-        setattr(self, self.exploring.other.value, dir)
-
-    def set_path(self, dir_type: DirType, path: Path) -> None:
+    def set_path(self, path: Path) -> None:
         """Sets the directory name in the right position in path_parts."""
-        self.exploring = dir_type
-        self.primary.path = path.with_suffix("")
-        category = self.primary.format[self.level]
-        index = self.secondary.format.index(category)
-        self.path_parts[index] = self.primary.path.name
 
-    @property
-    def complete(self) -> bool:
-        """Returns True when path_parts is complete."""
-        return all(self.path_parts)
+        # Remove the .lnk extension from shortcuts to find the target.
+        if self.traversing.dir_type == DirType.SHORTCUT:
+            path = path.with_suffix("")
+        self.traversing.path = path
 
-    @property
-    def complete_path(self) -> Path:
+        # Insert parts into part_parts.
+        category = self.traversing.format[self.level]
+        index = self.building.format.index(category)
+        self.path_parts[index] = self.traversing.path.name
+        if all(self.path_parts):
+            self.complete = True
+            self._build_path()
+
+    def _build_path(self) -> None:
         """Constructs a path out of path_parts."""
-        path = self.secondary.path
+        path = self.building.path
         path = path.joinpath(*self.path_parts)
-        if self.exploring == DirType.TARGET:
+        if self.building.dir_type == DirType.SHORTCUT:
             path = path.with_suffix(".lnk")
-        return path
-
-    @property
-    def exists(self) -> bool:
-        """Returns True when the completed path already exists."""
-        return self.complete_path.exists()
+        self.complete_path = path
 
     def create(self) -> None:
         """Creates a shortcut based on the completed path."""
-        target_path, shortcut_path = self.target.path, self.complete_path
+        target_path, shortcut_path = self.traversing.path, self.complete_path
         shortcut = Shortcut(shortcut_path)
         shortcut.target_path = target_path
         shortcut.create()

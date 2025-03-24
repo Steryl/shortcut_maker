@@ -9,18 +9,17 @@ def clean_shortcuts(link: Link):
     Removes empty folders at higher levels.
     Removes unresolvable shortcuts at the deepest level.    
     """
-    folder = link.shortcut.path
+    folder = link.traversing.path
     if not folder.exists():
         return
 
     for file in folder.iterdir():
-        link.set_path(DirType.SHORTCUT, file)
-
+        link.set_path(file)
+        # print(link)
         # At higher levels.
-        if not link.complete and file.is_dir():
-            clean_shortcuts(link.deeper)
-
         if not link.complete:
+            if file.is_dir():
+                clean_shortcuts(link.deeper)
             continue
 
         # At the deepest level.
@@ -43,26 +42,25 @@ def create_shortcuts(link: Link):
     Recursive function to create a new folder structure in the given format.
     At the deepest level create a shortcut to each folder.
     """
-    folder = link.target.path
+    folder = link.traversing.path
     for file in folder.iterdir():
         if not file.is_dir():
             continue
 
-        link.set_path(DirType.TARGET, file)
-
+        link.set_path(file)
         # At higher levels.
         if not link.complete:
             create_shortcuts(link.deeper)
             continue
 
         # At deepest level.
-        if not link.exists:
+        shortcut_path = link.complete_path
+        if not shortcut_path.exists():
             link.create()
-            Print.action(
-                f"Shortcut created: {link.complete_path} -> {file}")
+            Print.action(f"Shortcut created: {shortcut_path} -> {file}")
 
 
-def get_parameters() -> Link:
+def get_parameters() -> tuple[Directory, Directory]:
     """
     Validates the commandline arguments and returns a link object.
     Raises an Error for invalid arguments.
@@ -87,25 +85,28 @@ def get_parameters() -> Link:
     shortcut = Directory(DirType.SHORTCUT, shortcut_path, shortcut_format)
     target = Directory(DirType.TARGET, target_path, target_format)
 
-    return Link(target, shortcut)
+    return target, shortcut
 
 
 def main():
     """Retrieve parameters and execute functions."""
     try:
-        link = get_parameters()
+        target, shortcut = get_parameters()
+        target_link = Link(target, shortcut)
+        shortcut_link = Link(shortcut, target)
     except Exception as e:
         Print.usage(str(e))
 
     try:
-        clean_shortcuts(link.copy())
-        create_shortcuts(link.copy())
+        clean_shortcuts(shortcut_link)
+        create_shortcuts(target_link)
+        pass
     except Exception as e:
         Print.error(str(e))
         # print(traceback.format_exc())
 
     if Globals.no_changes:
-        Print(f"No changes made to: '{link.shortcut.path}'")
+        Print(f"No changes made to: '{target_link.building.path}'")
 
 
 if __name__ == "__main__":
