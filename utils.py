@@ -182,7 +182,7 @@ class Link:
         depth = len(traversing.format)
         self.path_parts = ['' for _ in range(depth)]
         self.complete = all(self.path_parts)
-        self.complete_path = False
+        self.complete_path = None
 
     def set_path(self, path: Path) -> None:
         """Sets the directory name in the right position in path_parts."""
@@ -196,6 +196,8 @@ class Link:
         category = self.traversing.format[self.level]
         index = self.building.format.index(category)
         self.path_parts[index] = self.traversing.path.name
+
+        # Build complete_path when path_parts is complete.
         if all(self.path_parts):
             self.complete = True
             self._build_path()
